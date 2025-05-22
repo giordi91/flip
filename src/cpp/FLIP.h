@@ -1842,11 +1842,24 @@ namespace FLIP
             image<color3> intermediateYCxImageTest(w, h);
             image<color3> intermediateCzImageReference(w, h);
             image<color3> intermediateCzImageTest(w, h);
+          image<color3>* intermediateYCxImageReferencePtr = &intermediateYCxImageReference;
+          image<color3>* intermediateYCxImageTestPtr = &intermediateYCxImageTest;
+          image<color3>* intermediateCzImageReferencePtr = &intermediateCzImageReference;
+          image<color3>* intermediateCzImageTestPtr = &intermediateCzImageTest;
 
+#define MACOS_GCD_MACOS
+#ifdef MACOS_GCD_MACOS
+          dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0);
+          dispatch_group_t group = dispatch_group_create();
+          
+#endif
             // Filter in x direction.
-#pragma omp parallel for
+//#pragma omp parallel for
             for (int y = 0; y < h; y++)
             {
+#ifdef MACOS_GCD_MACOS
+    dispatch_group_async(group, queue, ^{
+#endif
                 for (int x = 0; x < w; x++)
                 {
                     color3 intermediateYCxReference = { 0.0f, 0.0f, 0.0f };
@@ -1869,17 +1882,27 @@ namespace FLIP
                         intermediateCzTest += color3(weightsCz.x * testColor.z, weightsCz.y * testColor.z, 0.0f);
                     }
 
-                    intermediateYCxImageReference.set(x, y, intermediateYCxReference);
-                    intermediateYCxImageTest.set(x, y, intermediateYCxTest);
-                    intermediateCzImageReference.set(x, y, intermediateCzReference);
-                    intermediateCzImageTest.set(x, y, intermediateCzTest);
+                    intermediateYCxImageReferencePtr->set(x, y, intermediateYCxReference);
+                    intermediateYCxImageTestPtr->set(x, y, intermediateYCxTest);
+                    intermediateCzImageReferencePtr->set(x, y, intermediateCzReference);
+                    intermediateCzImageTestPtr->set(x, y, intermediateCzTest);
                 }
+      
+#ifdef MACOS_GCD_MACOS
+    });
+#endif
             }
+#ifdef MACOS_GCD_MACOS
+  dispatch_group_wait(group, DISPATCH_TIME_FOREVER);
+#endif
 
             // Filter in y direction.
 #pragma omp parallel for
             for (int y = 0; y < h; y++)
             {
+#ifdef MACOS_GCD_MACOS
+    dispatch_group_async(group, queue, ^{
+#endif
                 for (int x = 0; x < w; x++)
                 {
                     color3 filteredYCxReference = { 0.0f, 0.0f, 0.0f };
@@ -1893,10 +1916,10 @@ namespace FLIP
 
                         const color3 weightsYCx = filterYCx.get(iy + halfFilterWidth, 0);
                         const color3 weightsCz = filterCz.get(iy + halfFilterWidth, 0);
-                        const color3 intermediateYCxReference = intermediateYCxImageReference.get(x, yy);
-                        const color3 intermediateYCxTest = intermediateYCxImageTest.get(x, yy);
-                        const color3 intermediateCzReference = intermediateCzImageReference.get(x, yy);
-                        const color3 intermediateCzTest = intermediateCzImageTest.get(x, yy);
+                        const color3 intermediateYCxReference = intermediateYCxImageReferencePtr->get(x, yy);
+                        const color3 intermediateYCxTest = intermediateYCxImageTestPtr->get(x, yy);
+                        const color3 intermediateCzReference = intermediateCzImageReferencePtr->get(x, yy);
+                        const color3 intermediateCzTest = intermediateCzImageTestPtr->get(x, yy);
 
                         filteredYCxReference += color3(weightsYCx.x * intermediateYCxReference.x, weightsYCx.y * intermediateYCxReference.y, 0.0f);
                         filteredYCxTest += color3(weightsYCx.x * intermediateYCxTest.x, weightsYCx.y * intermediateYCxTest.y, 0.0f);
@@ -1936,7 +1959,14 @@ namespace FLIP
                     }
                     this->set(x, y, colorDifference);
                 }
+#ifdef MACOS_GCD_MACOS
+    });
+#endif
             }
+          
+#ifdef MACOS_GCD_MACOS
+  dispatch_group_wait(group, DISPATCH_TIME_FOREVER);
+#endif
         }
 
         // This includes convolution (using separable filtering) of grayRefImage and grayTestImage for both edge and point filtering.
