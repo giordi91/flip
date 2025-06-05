@@ -96,6 +96,11 @@
 #define HOST_DEVICE_FOR_CUDA
 #endif
 
+#define MACOS_GCD_MACOS
+#ifdef MACOS_GCD_MACOS
+#include<dispatch/dispatch.h>
+#endif
+
 namespace FLIP
 {
     const float PI = 3.14159265358979f;
@@ -1847,7 +1852,6 @@ namespace FLIP
           image<color3>* intermediateCzImageReferencePtr = &intermediateCzImageReference;
           image<color3>* intermediateCzImageTestPtr = &intermediateCzImageTest;
 
-#define MACOS_GCD_MACOS
 #ifdef MACOS_GCD_MACOS
           dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0);
           dispatch_group_t group = dispatch_group_create();
